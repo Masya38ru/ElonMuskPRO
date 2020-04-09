@@ -13,8 +13,9 @@ import android.util.Log
 import android.widget.ImageView
 
 
-class PictureAdapter(var items: List<PictureItem>, val callback: Callback) :
+class PictureAdapter(var items: List<String>) :
     RecyclerView.Adapter<PictureAdapter.PictureHolder>() {
+
     override fun getItemId(position: Int): Long {
         return position.toLong()
     }
@@ -35,18 +36,13 @@ class PictureAdapter(var items: List<PictureItem>, val callback: Callback) :
     override fun getItemCount() = items.size
 
     override fun onBindViewHolder(holder: PictureHolder, position: Int) {
-        holder.bind(items[position])
+        holder.serialNumber.text = (position + 1).toString()
+        DownloadImageTask(holder.picture).execute(items[position])
     }
 
     inner class PictureHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val serialNumber = itemView.findViewById<TextView>(R.id.serial_number)
-        private val picture = itemView.findViewById<ImageView>(R.id.picture)
-        fun bind(item: PictureItem) {
-            serialNumber.text = item.serial_number.toString()
-            DownloadImageTask(picture)
-                .execute(item.link)
-
-        }
+        internal val serialNumber = itemView.findViewById<TextView>(R.id.serial_number)
+        internal val picture = itemView.findViewById<ImageView>(R.id.picture)
     }
 
     @SuppressLint("StaticFieldLeak")
@@ -72,8 +68,5 @@ class PictureAdapter(var items: List<PictureItem>, val callback: Callback) :
         override fun onPostExecute(result: Bitmap) {
             bmImage.setImageBitmap(result)
         }
-    }
-    interface Callback {
-        fun onItemClicked(item: PictureItem)
     }
 }

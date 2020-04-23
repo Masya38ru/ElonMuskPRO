@@ -58,7 +58,7 @@ class PictureAdapter :
             call.clone().enqueue(object : Callback<ResponseBody> {
 
                 override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
-                    Log.i("Ошибка выполнения запроса", t.message)
+                    Log.e("Request execution error", t.message)
                 }
 
                 override fun onResponse(

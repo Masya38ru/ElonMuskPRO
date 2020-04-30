@@ -1,6 +1,5 @@
 package bonch.dev.myapplication
 
-import android.annotation.SuppressLint
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -22,6 +21,7 @@ class PictureAdapter :
     RecyclerView.Adapter<PictureAdapter.PictureHolder>() {
 
     private val items = arrayOfNulls<Bitmap>(10)
+    private val calls = arrayOfNulls<Call<ResponseBody>>(items.size)
 
     private val BASE_URL = "https://picsum.photos/"
     private var retrofit =
@@ -29,6 +29,10 @@ class PictureAdapter :
             .build()
     private var apiService: APIService = retrofit.create(APIService::class.java)
     private var call = apiService.loadImage()
+
+    companion object {
+        private const val TAG = "PictureAdapter"
+    }
 
     override fun getItemId(position: Int): Long {
         return position.toLong()
@@ -49,16 +53,16 @@ class PictureAdapter :
 
     override fun getItemCount() = items.size
 
-    @SuppressLint("LongLogTag")
     override fun onBindViewHolder(holder: PictureHolder, position: Int) {
         holder.serialNumber.text = (position + 1).toString()
         if (items[position] != null) {
             holder.picture.setImageBitmap(items[position])
         } else {
-            call.clone().enqueue(object : Callback<ResponseBody> {
+            calls[position] = call.clone()
+            calls[position]?.enqueue(object : Callback<ResponseBody> {
 
                 override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
-                    Log.e("Request execution error", t.message)
+                    Log.e(TAG, t.message)
                 }
 
                 override fun onResponse(
@@ -70,6 +74,10 @@ class PictureAdapter :
                 }
             })
         }
+    }
+
+    override fun onViewRecycled(holder: PictureHolder) {
+        calls[holder.adapterPosition]?.cancel()
     }
 
     inner class PictureHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {

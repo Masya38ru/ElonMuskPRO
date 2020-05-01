@@ -1,6 +1,5 @@
 package bonch.dev.myapplication
 
-import android.annotation.SuppressLint
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -8,26 +7,32 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.os.AsyncTask
 import android.util.Log
 import android.widget.ImageView
+import okhttp3.ResponseBody
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 
 class PictureAdapter :
     RecyclerView.Adapter<PictureAdapter.PictureHolder>() {
 
-    private val items = listOf(
-        "https://img0.liveinternet.ru/images/attach/c/1/58/895/58895836_0_2a883_8933efd9_XL.jpg",
-        "https://cs.pikabu.ru/post_img/2013/08/08/5/1375944655_592971946.jpg",
-        "https://i.pinimg.com/736x/17/a3/a8/17a3a8381771953e5df17a6ef90cdeb3--middle-fingers-funny-pets.jpg",
-        "https://img-hw.xvideos.com/videos/profiles/profthumb/84/2d/26/brian808/profile_1_big.jpg",
-        "https://www.proza.ru/pics/2013/07/11/1100.jpg",
-        "https://i.mycdn.me/i?r=AzEPZsRbOZEKgBhR0XGMT1RkXIkzoSU89xL0yGqn8o8poaaKTM5SRkZCeTgDn6uOyic",
-        "https://www.caption.me/images/flickr/263331.jpg",
-        "https://pics.me.me/fuck-you-cat-7834808.png",
-        "https://i02.fotocdn.net/s108/2811661b2a784b71/public_pin_m/2395182812.jpg",
-        "https://i.pinimg.com/736x/2b/9a/1a/2b9a1a8becf3bfeaee73bf87ddef736a.jpg"
-    )
+    private val items = arrayOfNulls<Bitmap>(10)
+    private val calls = arrayOfNulls<Call<ResponseBody>>(items.size)
+
+    private val BASE_URL = "https://picsum.photos/"
+    private var retrofit =
+        Retrofit.Builder().baseUrl(BASE_URL).addConverterFactory(GsonConverterFactory.create())
+            .build()
+    private var apiService: APIService = retrofit.create(APIService::class.java)
+    private var call = apiService.loadImage()
+
+    companion object {
+        private const val TAG = "PictureAdapter"
+    }
 
     override fun getItemId(position: Int): Long {
         return position.toLong()
@@ -50,7 +55,29 @@ class PictureAdapter :
 
     override fun onBindViewHolder(holder: PictureHolder, position: Int) {
         holder.serialNumber.text = (position + 1).toString()
-        DownloadImageTask(holder.picture).execute(items[position])
+        if (items[position] != null) {
+            holder.picture.setImageBitmap(items[position])
+        } else {
+            calls[position] = call.clone()
+            calls[position]?.enqueue(object : Callback<ResponseBody> {
+
+                override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
+                    Log.e(TAG, t.message)
+                }
+
+                override fun onResponse(
+                    call: Call<ResponseBody>,
+                    response: Response<ResponseBody>
+                ) {
+                    items[position] = BitmapFactory.decodeStream(response.body()?.byteStream())
+                    holder.picture.setImageBitmap(items[position])
+                }
+            })
+        }
+    }
+
+    override fun onViewRecycled(holder: PictureHolder) {
+        calls[holder.adapterPosition]?.cancel()
     }
 
     inner class PictureHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -58,28 +85,4 @@ class PictureAdapter :
         internal val picture = itemView.findViewById<ImageView>(R.id.picture)
     }
 
-    @SuppressLint("StaticFieldLeak")
-    private inner class DownloadImageTask(internal var bmImage: ImageView) :
-        AsyncTask<String, Void, Bitmap>() {
-
-        @SuppressLint("LongLogTag")
-        override fun doInBackground(vararg urls: String): Bitmap? {
-            val urldisplay = urls[0]
-            var mIcon11: Bitmap? = null
-            try {
-                val `in` = java.net.URL(urldisplay).openStream()
-                mIcon11 = BitmapFactory.decodeStream(`in`)
-            } catch (e: Exception) {
-                Log.e("Ошибка передачи изображения", e.message)
-                e.printStackTrace()
-            }
-
-            return mIcon11
-        }
-
-
-        override fun onPostExecute(result: Bitmap) {
-            bmImage.setImageBitmap(result)
-        }
-    }
 }

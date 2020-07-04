@@ -13,9 +13,18 @@ class PictureAdapter :
     RecyclerView.Adapter<PictureAdapter.PictureHolder>() {
 
     private val items = arrayListOf<Bitmap>()
+    private val itemUrls = arrayListOf<String>()
 
-    fun addItem(image: Bitmap) {
-        items.add(image)
+    companion object {
+        const val MAX_SIZE = 500
+        const val MIN_SIZE = 10
+    }
+
+    fun addItem(image: Bitmap, url: String) {
+        itemUrls.add(url)
+        if (items.size >= MAX_SIZE)
+            items[itemCount % MAX_SIZE] = image
+        else items.add(image)
     }
 
     override fun getItemId(position: Int): Long {
@@ -35,11 +44,12 @@ class PictureAdapter :
             )
         )
 
-    override fun getItemCount() = items.size
+    override fun getItemCount() = itemUrls.size
 
     override fun onBindViewHolder(holder: PictureHolder, position: Int) {
+        val index = position % MAX_SIZE
         holder.serialNumber.text = (position + 1).toString()
-        holder.picture.setImageBitmap(items[position])
+        holder.picture.setImageBitmap(items[index])
     }
 
     override fun onViewRecycled(holder: PictureHolder) {

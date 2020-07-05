@@ -1,17 +1,19 @@
 package bonch.dev.myapplication
 
-import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.facebook.drawee.backends.pipeline.Fresco
 import kotlinx.android.synthetic.main.activity_main.*
 import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 import java.util.*
+import kotlin.collections.HashSet
 
 class MainActivity : AppCompatActivity() {
 
@@ -20,12 +22,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var pictureAdapter: PictureAdapter
-    private val responses = LinkedList<Response<ResponseBody>>()
-    private var calls = LinkedList<Call<ResponseBody>>()
+    private val responses = ArrayList<Response<ResponseBody>>()
+    private var getImageUrlCalls = HashSet<Call<ResponseBody>>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        Fresco.initialize(this)
 
         val recyclerView: RecyclerView = findViewById(R.id.recycler_view)
         pictureAdapter = PictureAdapter()
@@ -41,41 +45,48 @@ class MainActivity : AppCompatActivity() {
                     val firstVisibleItem = layoutManager.findFirstVisibleItemPosition()
 
                     if (visibleItemCount + firstVisibleItem >= totalItemCount) {
-                        Log.v(TAG, "Call Load More !")
-                        if (calls.size == 0)
-                            loadMore(CallBackImplementer())
+                        if (getImageUrlCalls.size == 0) {
+                            Log.v(TAG, "Call Load More !")
+                            loadMore(GetImageUriCallback())
+                        }
                     }
                 }
             }
         })
-        loadMore(CallBackImplementer())
+        loadMore(GetImageUriCallback())
     }
 
     fun loadMore(callback: Callback<ResponseBody>) {
-        val call = RestClient.instance().loadImage()
-        for (i in 1..PictureAdapter.MIN_SIZE) {
-            calls.add(call.clone())
-            calls.last.enqueue(callback)
+        for (call in getImageUrlCalls) {
+            call.cancel()
+        }
+        getImageUrlCalls.removeAll(getImageUrlCalls)
+        for (i in 1..PictureAdapter.MIN_SIZE){
+            val getImageUrl = RestClient.instance().getRandomImageUri()
+            getImageUrl.enqueue(callback)
+            getImageUrlCalls.add(getImageUrl)
         }
     }
 
-    inner class CallBackImplementer : Callback<ResponseBody> {
+    inner class GetImageUriCallback : Callback<ResponseBody> {
         override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
             Log.e(TAG, t.message)
+            getImageUrlCalls.remove(call)
+            val getImageUrl = RestClient.instance().getRandomImageUri()
+            getImageUrl.enqueue(GetImageUriCallback())
+            getImageUrlCalls.add(getImageUrl)
         }
 
         override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
+            getImageUrlCalls.remove(call)
             responses.add(response)
             if (responses.size == PictureAdapter.MIN_SIZE) {
                 while (responses.size > 0) {
-                    calls.poll()
-                    val resp = responses.pollFirst()
-                    val url = resp.raw().request().url().toString()
-                    pictureAdapter.addItem(
-                        BitmapFactory.decodeStream(resp.body()?.byteStream()),
-                        url
-                    )
-                    text_url.text = url
+                    val resp = responses.last()
+                    responses.removeAt(responses.size - 1)
+                    val uri = Uri.parse(resp.message())
+                    pictureAdapter.addItem(uri)
+                    text_url.text = uri.toString()
                 }
                 pictureAdapter.notifyDataSetChanged()
             }
@@ -84,10 +95,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        for (call in calls)
-            if (!call.isExecuted)
-                call.cancel()
-        calls = LinkedList()
+        for (call in getImageUrlCalls) {
+            call.cancel()
+        }
+        getImageUrlCalls = HashSet()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Fresco.getImagePipeline().clearCaches()
     }
 }
 

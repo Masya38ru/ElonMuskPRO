@@ -1,6 +1,6 @@
 package bonch.dev.myapplication
 
-import android.graphics.Bitmap
+import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -12,19 +12,14 @@ import androidx.recyclerview.widget.RecyclerView
 class PictureAdapter :
     RecyclerView.Adapter<PictureAdapter.PictureHolder>() {
 
-    private val items = arrayListOf<Bitmap>()
-    private val itemUrls = arrayListOf<String>()
+    private val itemUris = arrayListOf<Uri>()
 
     companion object {
-        const val MAX_SIZE = 500
         const val MIN_SIZE = 10
     }
 
-    fun addItem(image: Bitmap, url: String) {
-        itemUrls.add(url)
-        if (items.size >= MAX_SIZE)
-            items[itemCount % MAX_SIZE] = image
-        else items.add(image)
+    fun addItem(uri: Uri) {
+        itemUris.add(uri)
     }
 
     override fun getItemId(position: Int): Long {
@@ -44,12 +39,11 @@ class PictureAdapter :
             )
         )
 
-    override fun getItemCount() = itemUrls.size
+    override fun getItemCount() = itemUris.size
 
     override fun onBindViewHolder(holder: PictureHolder, position: Int) {
-        val index = position % MAX_SIZE
         holder.serialNumber.text = (position + 1).toString()
-        holder.picture.setImageBitmap(items[index])
+        holder.picture.setImageURI(itemUris[position])
     }
 
     override fun onViewRecycled(holder: PictureHolder) {
